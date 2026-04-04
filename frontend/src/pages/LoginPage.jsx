@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { login } from "../api/auth";
 
@@ -8,8 +8,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { loginUser } = useAuth();
+  const { user, loginUser } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect when user state is confirmed set
+  useEffect(() => {
+    if (user) {
+      navigate("/", { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Already logged in — redirect immediately
+  if (user) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +28,7 @@ export default function LoginPage() {
     try {
       const { data } = await login(email, password);
       loginUser({ access: data.access, refresh: data.refresh }, data.user);
-      navigate("/");
+      // Navigation handled by useEffect above once user state is committed
     } catch (err) {
       setError(err.response?.data?.detail || "Identifiants invalides.");
     } finally {

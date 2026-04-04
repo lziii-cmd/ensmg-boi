@@ -17,7 +17,14 @@ import Layout from "./components/Layout";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex items-center justify-center h-screen text-gray-500">Chargement...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-center">
+        <div className="text-4xl mb-3 animate-pulse">💡</div>
+        <p className="text-gray-400 text-sm">Chargement...</p>
+      </div>
+    </div>
+  );
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

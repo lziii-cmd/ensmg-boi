@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { getMe } from "../api/auth";
 
 const AuthContext = createContext(null);
@@ -6,8 +6,13 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    // Prevent double-call in React 18 StrictMode
+    if (initialized.current) return;
+    initialized.current = true;
+
     const token = localStorage.getItem("access_token");
     if (token) {
       getMe()
