@@ -96,9 +96,12 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
+            <div className="mt-4 flex items-center justify-between">
               <Link to="/forgot-password" className="text-sm text-primary hover:underline">
                 Mot de passe oublié ?
+              </Link>
+              <Link to="/ensmg-init-platform" className="text-sm text-muted-foreground hover:underline">
+                Première connexion ?
               </Link>
             </div>
           </CardContent>
