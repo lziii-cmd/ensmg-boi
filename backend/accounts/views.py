@@ -2,7 +2,6 @@ import uuid
 import openpyxl
 from django.utils import timezone
 from rest_framework import status, generics
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,26 +14,7 @@ from .serializers import (
     ChangePasswordSerializer, MemberImportSerializer, AuditLogSerializer,
 )
 from .tasks import send_invitation_email, send_password_reset_email
-
-
-def get_client_ip(request):
-    x_forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded:
-        return x_forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
-
-
-def log_action(user, action, target_type="", target_id="", target_repr="", details=None, ip=""):
-    """Helper pour créer un log d'audit."""
-    AuditLog.objects.create(
-        user=user,
-        action=action,
-        target_type=target_type,
-        target_id=str(target_id) if target_id else "",
-        target_repr=target_repr,
-        details=details or {},
-        ip_address=ip,
-    )
+from .utils import get_client_ip, log_action
 
 
 class LoginView(APIView):
@@ -157,12 +137,9 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         instance = self.get_object()
-        old_data = {"role": instance.role, "is_active": instance.is_active}
 
         response = super().update(request, *args, **kwargs)
 
-        # Déterminer si c'est un toggle actif/inactif ou une modification générale
-        new_data = response.data
         if "is_active" in request.data and len(request.data) == 1:
             action = AuditLog.TOGGLE_ACTIVE
         else:
@@ -327,7 +304,7 @@ class ImportMembersView(APIView):
             for user in new_users:
                 send_invitation_email.delay(str(user.id))
 
-        import_log = MemberImport.objects.create(
+        MemberImport.objects.create(
             imported_by=request.user,
             file_name=file.name,
             rows_processed=rows_processed,
@@ -395,10 +372,10 @@ class CreateMemberView(APIView):
             last_name=last_name,
             role=role,
             is_active=True,
-            password_set=True,
+            password_set=False,
+            invitation_sent_at=timezone.now(),
         )
-        user.set_password("passer01")
-        user.save(update_fields=["password"])
+        send_invitation_email.delay(str(user.id))
 
         log_action(
             user=request.user,

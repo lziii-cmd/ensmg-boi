@@ -16,62 +16,20 @@ import ModerationPage from "./pages/dashboard/ModerationPage";
 import AuditPage from "./pages/dashboard/AuditPage";
 import Layout from "./components/Layout";
 
-function PrivateRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-background">
-      <div className="text-center">
-        <div className="text-4xl mb-3 animate-pulse">💡</div>
-        <p className="text-muted-foreground text-sm">Chargement...</p>
-      </div>
+const Spinner = () => (
+  <div className="flex items-center justify-center h-screen bg-background">
+    <div className="text-center">
+      <div className="text-4xl mb-3 animate-pulse">💡</div>
+      <p className="text-muted-foreground text-sm">Chargement...</p>
     </div>
-  );
-  if (!user) return <Navigate to="/login" replace />;
-  return children;
-}
+  </div>
+);
 
-/** Responsable + superuser — gestion des idées */
-function ManagerRoute({ children }) {
-  const { user, loading, canManageIdeas } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!canManageIdeas) return <Navigate to="/" replace />;
-  return children;
-}
-
-/** Admin + superuser — gestion des utilisateurs */
-function AdminRoute({ children }) {
-  const { user, loading, canManageUsers } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!canManageUsers) return <Navigate to="/" replace />;
-  return children;
-}
-
-/** Admin + superuser — audit */
-function AuditRoute({ children }) {
-  const { user, loading, canAudit } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!canAudit) return <Navigate to="/" replace />;
-  return children;
-}
-
-/** Membres réguliers — soumettre/mes idées (admin pur redirigé) */
-function MemberRoute({ children }) {
-  const { user, loading, isRegularMember } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!isRegularMember) return <Navigate to="/dashboard" replace />;
-  return children;
-}
-
-/** Dashboard général — quiconque y a accès (manager ou admin) */
-function DashboardRoute({ children }) {
-  const { user, loading, canManage } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!canManage) return <Navigate to="/" replace />;
+function ProtectedRoute({ children, check, redirectTo = "/" }) {
+  const auth = useAuth();
+  if (auth.loading) return <Spinner />;
+  if (!auth.user) return <Navigate to="/login" replace />;
+  if (check && !check(auth)) return <Navigate to={redirectTo} replace />;
   return children;
 }
 
@@ -86,27 +44,55 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Private */}
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<HomePage />} />
             <Route path="ideas/:id" element={<IdeaDetailPage />} />
             <Route path="profile" element={<ProfilePage />} />
 
             {/* Membres réguliers seulement (admin pur exclu) */}
-            <Route path="submit" element={<MemberRoute><SubmitIdeaPage /></MemberRoute>} />
-            <Route path="my-ideas" element={<MemberRoute><MyIdeasPage /></MemberRoute>} />
+            <Route path="submit" element={
+              <ProtectedRoute check={(a) => a.isRegularMember} redirectTo="/dashboard">
+                <SubmitIdeaPage />
+              </ProtectedRoute>
+            } />
+            <Route path="my-ideas" element={
+              <ProtectedRoute check={(a) => a.isRegularMember} redirectTo="/dashboard">
+                <MyIdeasPage />
+              </ProtectedRoute>
+            } />
 
             {/* Dashboard — admin OU responsable OU superuser */}
-            <Route path="dashboard" element={<DashboardRoute><DashboardPage /></DashboardRoute>} />
+            <Route path="dashboard" element={
+              <ProtectedRoute check={(a) => a.canManage}>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
 
             {/* Gestion des idées — responsable + superuser */}
-            <Route path="dashboard/ideas" element={<ManagerRoute><ManageIdeasPage /></ManagerRoute>} />
-            <Route path="dashboard/moderation" element={<ManagerRoute><ModerationPage /></ManagerRoute>} />
+            <Route path="dashboard/ideas" element={
+              <ProtectedRoute check={(a) => a.canManageIdeas}>
+                <ManageIdeasPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/moderation" element={
+              <ProtectedRoute check={(a) => a.canManageIdeas}>
+                <ModerationPage />
+              </ProtectedRoute>
+            } />
 
             {/* Gestion des membres — admin + superuser */}
-            <Route path="dashboard/members" element={<AdminRoute><MembersPage /></AdminRoute>} />
+            <Route path="dashboard/members" element={
+              <ProtectedRoute check={(a) => a.canManageUsers}>
+                <MembersPage />
+              </ProtectedRoute>
+            } />
 
             {/* Audit — admin + superuser */}
-            <Route path="dashboard/audit" element={<AuditRoute><AuditPage /></AuditRoute>} />
+            <Route path="dashboard/audit" element={
+              <ProtectedRoute check={(a) => a.canAudit}>
+                <AuditPage />
+              </ProtectedRoute>
+            } />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

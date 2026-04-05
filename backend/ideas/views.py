@@ -1,19 +1,20 @@
-from django.db.models import Q
+from django.db.models import Q, F
 from django.utils import timezone
 from rest_framework import generics, status, filters
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
+from accounts.models import AuditLog
 from accounts.permissions import IsResponsableOrAdmin, IsResponsable, IsMember, IsRegularMember
+from accounts.utils import get_client_ip, log_action
+from notifications.tasks import notify_new_idea, notify_status_change, notify_comment_reported
 from .models import Category, Idea, StatusHistory, Vote, Comment, CommentReport
 from .serializers import (
     CategorySerializer, IdeaListSerializer, IdeaDetailSerializer,
     IdeaCreateSerializer, IdeaStatusUpdateSerializer, CommentSerializer,
 )
-from .tasks import notify_status_change, notify_comment_reported
 
 
 class CategoryListView(generics.ListAPIView):
@@ -34,12 +35,8 @@ class IdeaListView(generics.ListAPIView):
         qs = Idea.objects.select_related("author", "category")
 
         if user.can_manage_ideas():
-            # Responsable and admin see all ideas
             return qs
 
-        # Regular members see:
-        # - Public ideas that are published or later
-        # - Their own ideas (any status/visibility)
         return qs.filter(
             Q(visibility=Idea.PUBLIC, status__in=[
                 Idea.PUBLIEE, Idea.EN_ETUDE, Idea.ACCEPTEE, Idea.MISE_EN_OEUVRE
@@ -52,9 +49,6 @@ class IdeaCreateView(generics.CreateAPIView):
     serializer_class = IdeaCreateSerializer
 
     def perform_create(self, serializer):
-        from notifications.tasks import notify_new_idea
-        from accounts.models import AuditLog
-        from accounts.views import log_action, get_client_ip
         idea = serializer.save(author=self.request.user)
         notify_new_idea.delay(str(idea.id))
         log_action(
@@ -124,11 +118,8 @@ class IdeaStatusUpdateView(APIView):
             comment=comment,
         )
 
-        from notifications.tasks import notify_status_change
         notify_status_change.delay(str(idea.id), old_status, new_status)
 
-        from accounts.models import AuditLog
-        from accounts.views import log_action, get_client_ip
         log_action(
             user=request.user,
             action=AuditLog.IDEA_STATUS,
@@ -150,8 +141,20 @@ class IdeaPinView(APIView):
             idea = Idea.objects.get(pk=pk)
         except Idea.DoesNotExist:
             return Response({"detail": "Idée introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
         idea.is_pinned = not idea.is_pinned
         idea.save(update_fields=["is_pinned"])
+
+        log_action(
+            user=request.user,
+            action=AuditLog.IDEA_PIN,
+            target_type="idea",
+            target_id=idea.id,
+            target_repr=idea.title,
+            details={"is_pinned": idea.is_pinned},
+            ip=get_client_ip(request),
+        )
+
         return Response({"is_pinned": idea.is_pinned})
 
 
@@ -169,11 +172,13 @@ class VoteView(APIView):
         vote, created = Vote.objects.get_or_create(idea=idea, user=request.user)
         if not created:
             vote.delete()
-            Idea.objects.filter(pk=pk).update(vote_count=max(0, idea.vote_count - 1))
-            return Response({"voted": False, "vote_count": idea.vote_count - 1})
+            Idea.objects.filter(pk=pk).update(vote_count=F("vote_count") - 1)
+            idea.refresh_from_db(fields=["vote_count"])
+            return Response({"voted": False, "vote_count": idea.vote_count})
 
-        Idea.objects.filter(pk=pk).update(vote_count=idea.vote_count + 1)
-        return Response({"voted": True, "vote_count": idea.vote_count + 1})
+        Idea.objects.filter(pk=pk).update(vote_count=F("vote_count") + 1)
+        idea.refresh_from_db(fields=["vote_count"])
+        return Response({"voted": True, "vote_count": idea.vote_count})
 
 
 class CommentCreateView(generics.CreateAPIView):
@@ -202,7 +207,6 @@ class CommentReportView(APIView):
         comment.report_count += 1
         if comment.report_count >= 3:
             comment.is_hidden = True
-            from notifications.tasks import notify_comment_reported
             notify_comment_reported.delay(str(comment.id))
         comment.save()
         return Response({"detail": "Commentaire signalé."})
@@ -237,8 +241,26 @@ class CommentModerationView(APIView):
             comment.is_hidden = False
             comment.report_count = 0
             comment.save()
+            log_action(
+                user=request.user,
+                action=AuditLog.COMMENT_MODERATE,
+                target_type="comment",
+                target_id=comment.id,
+                target_repr=f"Commentaire sur « {comment.idea.title} »",
+                details={"action": "approve"},
+                ip=get_client_ip(request),
+            )
             return Response({"detail": "Commentaire réapprouvé."})
         elif action == "delete":
+            log_action(
+                user=request.user,
+                action=AuditLog.COMMENT_MODERATE,
+                target_type="comment",
+                target_id=comment.id,
+                target_repr=f"Commentaire sur « {comment.idea.title} »",
+                details={"action": "delete"},
+                ip=get_client_ip(request),
+            )
             comment.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response({"detail": "Action invalide."}, status=status.HTTP_400_BAD_REQUEST)
@@ -252,7 +274,6 @@ class DashboardStatsView(APIView):
         from datetime import timedelta
 
         now = timezone.now()
-        week_ago = now - timedelta(days=7)
 
         total = Idea.objects.count()
         by_status = {
@@ -270,7 +291,7 @@ class DashboardStatsView(APIView):
         in_study_old = Idea.objects.filter(
             status=Idea.EN_ETUDE, updated_at__lte=now - timedelta(days=7)
         ).count()
-        recent = Idea.objects.filter(created_at__gte=week_ago).count()
+        recent = Idea.objects.filter(created_at__gte=now - timedelta(days=7)).count()
 
         return Response({
             "total": total,
