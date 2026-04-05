@@ -39,6 +39,10 @@ services:
     buildCommand: "npm install && npm run build"
     staticPublishPath: dist
     plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
         sync: false   # ex: https://ensmg-backend.onrender.com/api/v1
