@@ -11,6 +11,24 @@ class Command(BaseCommand):
         from accounts.models import User
         from ideas.models import Category, Idea, Vote, Comment
 
+        # ── Superuser ─────────────────────────────────────────────────
+        if not User.objects.filter(email="superuser@ensmg.sn").exists():
+            u = User.objects.create(
+                email="superuser@ensmg.sn",
+                first_name="Super",
+                last_name="Administrateur",
+                role=User.SUPERUSER,
+                is_active=True,
+                is_staff=True,
+                is_superuser=True,
+                password_set=True,
+            )
+            u.set_password("passer01")
+            u.save()
+            self.stdout.write(self.style.SUCCESS("Superuser créé : superuser@ensmg.sn / passer01"))
+        else:
+            self.stdout.write("Superuser déjà existant.")
+
         # ── Catégories ────────────────────────────────────────────────
         categories_data = [
             ("Pédagogie et Formation", "pedagogie-formation", 1),
