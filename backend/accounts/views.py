@@ -12,6 +12,7 @@ from .permissions import IsAdmin, IsResponsableOrAdmin, IsAuditor
 from .serializers import (
     UserSerializer, LoginSerializer, SetPasswordSerializer,
     ChangePasswordSerializer, MemberImportSerializer, AuditLogSerializer,
+    SuperuserSetupSerializer,
 )
 from .tasks import send_invitation_email, send_password_reset_email
 from .utils import get_client_ip, log_action
@@ -390,6 +391,57 @@ class CreateMemberView(APIView):
         data = UserSerializer(user).data
         data["generated_email"] = email
         return Response(data, status=status.HTTP_201_CREATED)
+
+
+class SetupView(APIView):
+    """
+    Page d'initialisation secrète — crée le premier superuser.
+    Désactivée automatiquement dès qu'un superuser existe.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        setup_needed = not User.objects.filter(role=User.SUPERUSER).exists()
+        return Response({"setup_needed": setup_needed})
+
+    def post(self, request):
+        if User.objects.filter(role=User.SUPERUSER).exists():
+            return Response(
+                {"detail": "La plateforme est déjà initialisée."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SuperuserSetupSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+
+        if User.objects.filter(email=data["email"]).exists():
+            return Response(
+                {"detail": "Un compte avec cet email existe déjà."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.create(
+            email=data["email"],
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            role=User.SUPERUSER,
+            is_active=True,
+            is_staff=True,
+            is_superuser=True,
+            password_set=True,
+        )
+        user.set_password(data["password"])
+        user.save()
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": UserSerializer(user).data,
+        }, status=status.HTTP_201_CREATED)
 
 
 class ImportHistoryView(generics.ListAPIView):

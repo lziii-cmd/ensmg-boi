@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
 from django.utils import timezone
 from .models import User, MemberImport, AuditLog
 
@@ -102,6 +101,22 @@ class MemberImportSerializer(serializers.ModelSerializer):
             "id", "imported_by_name", "imported_at", "file_name",
             "rows_processed", "rows_created", "rows_updated", "rows_errors", "errors",
         ]
+
+
+class SuperuserSetupSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=8, write_only=True)
+    password_confirm = serializers.CharField(write_only=True)
+
+    def validate_email(self, value):
+        return value.lower().strip()
+
+    def validate(self, data):
+        if data["password"] != data["password_confirm"]:
+            raise serializers.ValidationError({"password_confirm": "Les mots de passe ne correspondent pas."})
+        return data
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

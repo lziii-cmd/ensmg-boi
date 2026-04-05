@@ -37,3 +37,7 @@ export const createMember = (data) => api.post("/auth/users/create/", data);
 export const deleteUser = (id) => api.delete(`/auth/users/${id}/`);
 
 export const getAuditLogs = (params) => api.get("/auth/audit/", { params });
+
+export const checkSetup = () => api.get("/auth/setup/");
+
+export const setupSuperuser = (data) => api.post("/auth/setup/", data);
