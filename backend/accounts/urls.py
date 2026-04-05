@@ -13,6 +13,8 @@ urlpatterns = [
     path("users/", views.UserListView.as_view(), name="user_list"),
     path("users/<uuid:pk>/", views.UserDetailView.as_view(), name="user_detail"),
     path("users/<uuid:pk>/resend-invitation/", views.ResendInvitationView.as_view(), name="resend_invitation"),
+    path("users/create/", views.CreateMemberView.as_view(), name="create_member"),
     path("import/", views.ImportMembersView.as_view(), name="import_members"),
     path("import/history/", views.ImportHistoryView.as_view(), name="import_history"),
+    path("audit/", views.AuditLogView.as_view(), name="audit_log"),
 ]

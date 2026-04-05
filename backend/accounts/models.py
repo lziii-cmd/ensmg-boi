@@ -16,7 +16,7 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault("role", User.ADMIN)
+        extra_fields.setdefault("role", User.SUPERUSER)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("password_set", True)
@@ -29,13 +29,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     PAT = "pat"
     RESPONSABLE = "responsable"
     ADMIN = "admin"
+    SUPERUSER = "superuser"
 
     ROLE_CHOICES = [
-        (ELEVE, "Élève"),
+        (ELEVE, "Étudiant(e)"),
         (PROFESSEUR, "Professeur"),
         (PAT, "Personnel administratif et technique"),
         (RESPONSABLE, "Responsable des communications"),
         (ADMIN, "Administrateur"),
+        (SUPERUSER, "Super administrateur"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -77,10 +79,23 @@ class User(AbstractBaseUser, PermissionsMixin):
         return False
 
     def can_manage_ideas(self):
-        return self.role in (self.RESPONSABLE, self.ADMIN)
+        """Responsable et superuser peuvent gérer les idées. Admin NON."""
+        return self.role in (self.RESPONSABLE, self.SUPERUSER)
+
+    def can_manage_users(self):
+        """Admin et superuser peuvent gérer les utilisateurs."""
+        return self.role in (self.ADMIN, self.SUPERUSER)
+
+    def can_audit(self):
+        """Admin et superuser ont accès aux logs d'audit."""
+        return self.role in (self.ADMIN, self.SUPERUSER)
 
     def is_admin_role(self):
-        return self.role == self.ADMIN
+        return self.role in (self.ADMIN, self.SUPERUSER)
+
+    def is_regular_member(self):
+        """Peut soumettre des idées, voter, commenter. Admin pur exclu."""
+        return self.is_active and self.role != self.ADMIN
 
 
 class MemberImport(models.Model):
@@ -98,3 +113,54 @@ class MemberImport(models.Model):
 
     def __str__(self):
         return f"Import {self.file_name} — {self.imported_at:%d/%m/%Y %H:%M}"
+
+
+class AuditLog(models.Model):
+    # Types d'actions
+    LOGIN = "login"
+    LOGOUT = "logout"
+    CREATE_USER = "create_user"
+    UPDATE_USER = "update_user"
+    DELETE_USER = "delete_user"
+    TOGGLE_ACTIVE = "toggle_active"
+    IMPORT_USERS = "import_users"
+    IDEA_STATUS = "idea_status"
+    IDEA_CREATE = "idea_create"
+    IDEA_PIN = "idea_pin"
+    COMMENT_MODERATE = "comment_moderate"
+
+    ACTION_CHOICES = [
+        (LOGIN, "Connexion"),
+        (LOGOUT, "Déconnexion"),
+        (CREATE_USER, "Création de membre"),
+        (UPDATE_USER, "Modification de membre"),
+        (DELETE_USER, "Suppression de membre"),
+        (TOGGLE_ACTIVE, "Activation/Désactivation"),
+        (IMPORT_USERS, "Import de membres"),
+        (IDEA_STATUS, "Changement de statut d'idée"),
+        (IDEA_CREATE, "Soumission d'idée"),
+        (IDEA_PIN, "Épinglage d'idée"),
+        (COMMENT_MODERATE, "Modération de commentaire"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name="audit_logs"
+    )
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    target_type = models.CharField(max_length=50, blank=True)   # "user", "idea", "comment"
+    target_id = models.CharField(max_length=100, blank=True)
+    target_repr = models.CharField(max_length=255, blank=True)  # description lisible
+    details = models.JSONField(default=dict, blank=True)
+    ip_address = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Log d'audit"
+        verbose_name_plural = "Logs d'audit"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        user_str = self.user.full_name if self.user else "Inconnu"
+        return f"[{self.created_at:%d/%m/%Y %H:%M}] {user_str} — {self.get_action_display()}"

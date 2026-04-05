@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
-from accounts.permissions import IsResponsableOrAdmin, IsMember
+from accounts.permissions import IsResponsableOrAdmin, IsResponsable, IsMember, IsRegularMember
 from .models import Category, Idea, StatusHistory, Vote, Comment, CommentReport
 from .serializers import (
     CategorySerializer, IdeaListSerializer, IdeaDetailSerializer,
@@ -48,12 +48,23 @@ class IdeaListView(generics.ListAPIView):
 
 
 class IdeaCreateView(generics.CreateAPIView):
+    permission_classes = [IsRegularMember]
     serializer_class = IdeaCreateSerializer
 
     def perform_create(self, serializer):
         from notifications.tasks import notify_new_idea
+        from accounts.models import AuditLog
+        from accounts.views import log_action, get_client_ip
         idea = serializer.save(author=self.request.user)
         notify_new_idea.delay(str(idea.id))
+        log_action(
+            user=self.request.user,
+            action=AuditLog.IDEA_CREATE,
+            target_type="idea",
+            target_id=idea.id,
+            target_repr=idea.title,
+            ip=get_client_ip(self.request),
+        )
 
 
 class IdeaDetailView(generics.RetrieveAPIView):
@@ -81,7 +92,7 @@ class MyIdeasView(generics.ListAPIView):
 
 
 class IdeaStatusUpdateView(APIView):
-    permission_classes = [IsResponsableOrAdmin]
+    permission_classes = [IsResponsable]
 
     def patch(self, request, pk):
         try:
@@ -116,11 +127,23 @@ class IdeaStatusUpdateView(APIView):
         from notifications.tasks import notify_status_change
         notify_status_change.delay(str(idea.id), old_status, new_status)
 
+        from accounts.models import AuditLog
+        from accounts.views import log_action, get_client_ip
+        log_action(
+            user=request.user,
+            action=AuditLog.IDEA_STATUS,
+            target_type="idea",
+            target_id=idea.id,
+            target_repr=idea.title,
+            details={"old_status": old_status, "new_status": new_status, "comment": comment},
+            ip=get_client_ip(request),
+        )
+
         return Response(IdeaDetailSerializer(idea, context={"request": request}).data)
 
 
 class IdeaPinView(APIView):
-    permission_classes = [IsResponsableOrAdmin]
+    permission_classes = [IsResponsable]
 
     def patch(self, request, pk):
         try:
@@ -133,6 +156,8 @@ class IdeaPinView(APIView):
 
 
 class VoteView(APIView):
+    permission_classes = [IsRegularMember]
+
     def post(self, request, pk):
         try:
             idea = Idea.objects.get(pk=pk, status__in=[
@@ -184,7 +209,7 @@ class CommentReportView(APIView):
 
 
 class CommentModerationView(APIView):
-    permission_classes = [IsResponsableOrAdmin]
+    permission_classes = [IsResponsable]
 
     def get(self, request):
         comments = Comment.objects.filter(is_hidden=True).select_related("author", "idea")

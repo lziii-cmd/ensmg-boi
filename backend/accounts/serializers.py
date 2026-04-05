@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from .models import User, MemberImport
+from .models import User, MemberImport, AuditLog
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -102,3 +102,23 @@ class MemberImportSerializer(serializers.ModelSerializer):
             "id", "imported_by_name", "imported_at", "file_name",
             "rows_processed", "rows_created", "rows_updated", "rows_errors", "errors",
         ]
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+    action_label = serializers.CharField(source="get_action_display", read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id", "user_name", "user_email", "action", "action_label",
+            "target_type", "target_id", "target_repr",
+            "details", "ip_address", "created_at",
+        ]
+
+    def get_user_name(self, obj):
+        return obj.user.full_name if obj.user else "Inconnu"
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else ""

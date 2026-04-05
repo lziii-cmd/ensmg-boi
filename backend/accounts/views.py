@@ -8,13 +8,33 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User, MemberImport
-from .permissions import IsAdmin, IsResponsableOrAdmin
+from .models import User, MemberImport, AuditLog
+from .permissions import IsAdmin, IsResponsableOrAdmin, IsAuditor
 from .serializers import (
     UserSerializer, LoginSerializer, SetPasswordSerializer,
-    ChangePasswordSerializer, MemberImportSerializer,
+    ChangePasswordSerializer, MemberImportSerializer, AuditLogSerializer,
 )
 from .tasks import send_invitation_email, send_password_reset_email
+
+
+def get_client_ip(request):
+    x_forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded:
+        return x_forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def log_action(user, action, target_type="", target_id="", target_repr="", details=None, ip=""):
+    """Helper pour créer un log d'audit."""
+    AuditLog.objects.create(
+        user=user,
+        action=action,
+        target_type=target_type,
+        target_id=str(target_id) if target_id else "",
+        target_repr=target_repr,
+        details=details or {},
+        ip_address=ip,
+    )
 
 
 class LoginView(APIView):
@@ -24,9 +44,6 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
             error = serializer.errors.get("non_field_errors", ["Identifiants invalides."])
-            code = None
-            if hasattr(error, "code"):
-                code = error.code
             return Response(
                 {"detail": error[0] if isinstance(error, list) else str(error)},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -34,6 +51,14 @@ class LoginView(APIView):
 
         user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
+
+        log_action(
+            user=user,
+            action=AuditLog.LOGIN,
+            target_repr=user.email,
+            ip=get_client_ip(request),
+        )
+
         return Response({
             "access": str(refresh.access_token),
             "refresh": str(refresh),
@@ -43,6 +68,12 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     def post(self, request):
+        log_action(
+            user=request.user,
+            action=AuditLog.LOGOUT,
+            target_repr=request.user.email,
+            ip=get_client_ip(request),
+        )
         try:
             refresh_token = request.data.get("refresh")
             token = RefreshToken(refresh_token)
@@ -118,14 +149,57 @@ class UserListView(generics.ListAPIView):
     ordering_fields = ["last_name", "date_joined"]
 
 
-class UserDetailView(generics.RetrieveUpdateAPIView):
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdmin]
     serializer_class = UserSerializer
     queryset = User.objects.all()
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
-        return super().update(request, *args, **kwargs)
+        instance = self.get_object()
+        old_data = {"role": instance.role, "is_active": instance.is_active}
+
+        response = super().update(request, *args, **kwargs)
+
+        # Déterminer si c'est un toggle actif/inactif ou une modification générale
+        new_data = response.data
+        if "is_active" in request.data and len(request.data) == 1:
+            action = AuditLog.TOGGLE_ACTIVE
+        else:
+            action = AuditLog.UPDATE_USER
+
+        log_action(
+            user=request.user,
+            action=action,
+            target_type="user",
+            target_id=instance.id,
+            target_repr=instance.full_name,
+            details={
+                "email": instance.email,
+                "changes": {k: v for k, v in request.data.items() if k not in ("password",)},
+            },
+            ip=get_client_ip(request),
+        )
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        if user == request.user:
+            return Response(
+                {"detail": "Vous ne pouvez pas supprimer votre propre compte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        log_action(
+            user=request.user,
+            action=AuditLog.DELETE_USER,
+            target_type="user",
+            target_id=user.id,
+            target_repr=user.full_name,
+            details={"email": user.email, "role": user.role},
+            ip=get_client_ip(request),
+        )
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ResendInvitationView(APIView):
@@ -263,6 +337,19 @@ class ImportMembersView(APIView):
             errors=errors,
         )
 
+        log_action(
+            user=request.user,
+            action=AuditLog.IMPORT_USERS,
+            target_type="import",
+            target_repr=file.name,
+            details={
+                "rows_created": rows_created,
+                "rows_updated": rows_updated,
+                "rows_errors": rows_errors,
+            },
+            ip=get_client_ip(request),
+        )
+
         return Response({
             "rows_processed": rows_processed,
             "rows_created": rows_created,
@@ -272,7 +359,75 @@ class ImportMembersView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class CreateMemberView(APIView):
+    permission_classes = [IsAdmin]
+
+    @staticmethod
+    def slugify_name(name):
+        import unicodedata
+        name = unicodedata.normalize("NFD", name)
+        name = "".join(c for c in name if unicodedata.category(c) != "Mn")
+        return name.lower().strip().replace(" ", "")
+
+    def post(self, request):
+        first_name = request.data.get("first_name", "").strip()
+        last_name = request.data.get("last_name", "").strip()
+        role = request.data.get("role", "eleve")
+
+        if not first_name or not last_name:
+            return Response({"detail": "Nom et prénom obligatoires."}, status=status.HTTP_400_BAD_REQUEST)
+        if role not in [User.ELEVE, User.PROFESSEUR, User.PAT, User.RESPONSABLE, User.ADMIN]:
+            return Response({"detail": "Rôle invalide."}, status=status.HTTP_400_BAD_REQUEST)
+
+        slug_first = self.slugify_name(first_name)
+        slug_last = self.slugify_name(last_name)
+        base_email = f"{slug_first}.{slug_last}@ensmg.sn"
+
+        email = base_email
+        counter = 2
+        while User.objects.filter(email=email).exists():
+            email = f"{slug_first}.{slug_last}{counter}@ensmg.sn"
+            counter += 1
+
+        user = User.objects.create(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            role=role,
+            is_active=True,
+            password_set=True,
+        )
+        user.set_password("passer01")
+        user.save(update_fields=["password"])
+
+        log_action(
+            user=request.user,
+            action=AuditLog.CREATE_USER,
+            target_type="user",
+            target_id=user.id,
+            target_repr=user.full_name,
+            details={"email": email, "role": role},
+            ip=get_client_ip(request),
+        )
+
+        data = UserSerializer(user).data
+        data["generated_email"] = email
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
 class ImportHistoryView(generics.ListAPIView):
     permission_classes = [IsAdmin]
     serializer_class = MemberImportSerializer
     queryset = MemberImport.objects.all()
+
+
+class AuditLogView(generics.ListAPIView):
+    permission_classes = [IsAuditor]
+    serializer_class = AuditLogSerializer
+    filterset_fields = ["action", "target_type"]
+    search_fields = ["target_repr", "user__first_name", "user__last_name", "user__email"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return AuditLog.objects.select_related("user").all()

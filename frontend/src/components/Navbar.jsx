@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function Navbar() {
-  const { user, logoutUser, canManage } = useAuth();
+  const { user, logoutUser, canManage, isRegularMember, canManageUsers, canAudit } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -36,9 +36,14 @@ export default function Navbar() {
   };
 
   const navLinks = [
+    // Idées visibles à tous
     { to: "/", label: "Idées", icon: Lightbulb },
-    { to: "/submit", label: "Soumettre", icon: PlusCircle },
-    { to: "/my-ideas", label: "Mes idées", icon: User },
+    // Soumettre + Mes idées : membres réguliers uniquement (pas admin pur)
+    ...(isRegularMember ? [
+      { to: "/submit", label: "Soumettre", icon: PlusCircle },
+      { to: "/my-ideas", label: "Mes idées", icon: User },
+    ] : []),
+    // Dashboard : responsable, admin, superuser
     ...(canManage ? [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
   ];
 
@@ -61,7 +66,8 @@ export default function Navbar() {
                 size="sm"
                 className={cn(
                   "text-blue-100 hover:text-white hover:bg-white/10 gap-1.5",
-                  location.pathname === to && "bg-white/15 text-white"
+                  location.pathname === to && "bg-white/15 text-white",
+                  to === "/submit" && "text-yellow-300 hover:text-yellow-200 hover:bg-yellow-400/15 font-semibold"
                 )}
               >
                 <Icon size={15} />

@@ -1,0 +1,52 @@
+services:
+  # ── Backend Django ──────────────────────────────────────────────
+  - type: web
+    name: ensmg-backend
+    env: python
+    region: oregon
+    rootDir: backend
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ensmg-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        sync: false   # à renseigner manuellement après le déploiement
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false   # à renseigner manuellement après le déploiement
+      - key: FRONTEND_URL
+        sync: false   # URL du frontend Render
+      - key: REDIS_URL
+        sync: false   # optionnel : Redis pour Celery
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.console.EmailBackend"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # ── Frontend React ───────────────────────────────────────────────
+  - type: web
+    name: ensmg-frontend
+    env: static
+    region: oregon
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: dist
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        sync: false   # ex: https://ensmg-backend.onrender.com/api/v1
+
+# ── Base de données PostgreSQL ───────────────────────────────────
+databases:
+  - name: ensmg-db
+    databaseName: ensmg_boite_idees
+    user: ensmg_admin
+    region: oregon
+    plan: free

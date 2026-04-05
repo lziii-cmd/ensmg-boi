@@ -48,7 +48,7 @@ export default function HomePage() {
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
-    queryFn: () => getCategories().then((r) => r.data),
+    queryFn: () => getCategories().then((r) => r.data?.results || r.data),
   });
 
   const ideas = data?.results || [];

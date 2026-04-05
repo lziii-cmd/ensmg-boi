@@ -13,6 +13,7 @@ import DashboardPage from "./pages/dashboard/DashboardPage";
 import ManageIdeasPage from "./pages/dashboard/ManageIdeasPage";
 import MembersPage from "./pages/dashboard/MembersPage";
 import ModerationPage from "./pages/dashboard/ModerationPage";
+import AuditPage from "./pages/dashboard/AuditPage";
 import Layout from "./components/Layout";
 
 function PrivateRoute({ children }) {
@@ -29,19 +30,48 @@ function PrivateRoute({ children }) {
   return children;
 }
 
+/** Responsable + superuser — gestion des idées */
 function ManagerRoute({ children }) {
+  const { user, loading, canManageIdeas } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canManageIdeas) return <Navigate to="/" replace />;
+  return children;
+}
+
+/** Admin + superuser — gestion des utilisateurs */
+function AdminRoute({ children }) {
+  const { user, loading, canManageUsers } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canManageUsers) return <Navigate to="/" replace />;
+  return children;
+}
+
+/** Admin + superuser — audit */
+function AuditRoute({ children }) {
+  const { user, loading, canAudit } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canAudit) return <Navigate to="/" replace />;
+  return children;
+}
+
+/** Membres réguliers — soumettre/mes idées (admin pur redirigé) */
+function MemberRoute({ children }) {
+  const { user, loading, isRegularMember } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isRegularMember) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+/** Dashboard général — quiconque y a accès (manager ou admin) */
+function DashboardRoute({ children }) {
   const { user, loading, canManage } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (!canManage) return <Navigate to="/" replace />;
-  return children;
-}
-
-function AdminRoute({ children }) {
-  const { user, loading, isAdmin } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!isAdmin) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -59,17 +89,24 @@ export default function App() {
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<HomePage />} />
             <Route path="ideas/:id" element={<IdeaDetailPage />} />
-            <Route path="submit" element={<SubmitIdeaPage />} />
-            <Route path="my-ideas" element={<MyIdeasPage />} />
             <Route path="profile" element={<ProfilePage />} />
 
-            {/* Manager routes */}
-            <Route path="dashboard" element={<ManagerRoute><DashboardPage /></ManagerRoute>} />
+            {/* Membres réguliers seulement (admin pur exclu) */}
+            <Route path="submit" element={<MemberRoute><SubmitIdeaPage /></MemberRoute>} />
+            <Route path="my-ideas" element={<MemberRoute><MyIdeasPage /></MemberRoute>} />
+
+            {/* Dashboard — admin OU responsable OU superuser */}
+            <Route path="dashboard" element={<DashboardRoute><DashboardPage /></DashboardRoute>} />
+
+            {/* Gestion des idées — responsable + superuser */}
             <Route path="dashboard/ideas" element={<ManagerRoute><ManageIdeasPage /></ManagerRoute>} />
             <Route path="dashboard/moderation" element={<ManagerRoute><ModerationPage /></ManagerRoute>} />
 
-            {/* Admin only */}
+            {/* Gestion des membres — admin + superuser */}
             <Route path="dashboard/members" element={<AdminRoute><MembersPage /></AdminRoute>} />
+
+            {/* Audit — admin + superuser */}
+            <Route path="dashboard/audit" element={<AuditRoute><AuditPage /></AuditRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

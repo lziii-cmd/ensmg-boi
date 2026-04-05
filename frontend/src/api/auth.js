@@ -31,3 +31,9 @@ export const importMembers = (formData) =>
   });
 
 export const getImportHistory = () => api.get("/auth/import/history/");
+
+export const createMember = (data) => api.post("/auth/users/create/", data);
+
+export const deleteUser = (id) => api.delete(`/auth/users/${id}/`);
+
+export const getAuditLogs = (params) => api.get("/auth/audit/", { params });

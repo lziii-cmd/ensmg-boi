@@ -9,7 +9,6 @@ export function AuthProvider({ children }) {
   const initialized = useRef(false);
 
   useEffect(() => {
-    // Prevent double-call in React 18 StrictMode
     if (initialized.current) return;
     initialized.current = true;
 
@@ -39,12 +38,26 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const isAdmin = user?.role === "admin";
-  const isResponsable = user?.role === "responsable";
-  const canManage = isAdmin || isResponsable;
+  // Rôles
+  const isSuperuser = user?.role === "superuser";
+  const isAdmin = user?.role === "admin" || isSuperuser;       // gestion utilisateurs + audit
+  const isResponsable = user?.role === "responsable" || isSuperuser; // gestion idées
+  const isPureAdmin = user?.role === "admin";                  // admin strict (sans superuser)
+
+  // Accès aux fonctionnalités
+  const canManageUsers = isAdmin;                    // admin + superuser
+  const canManageIdeas = isResponsable;              // responsable + superuser (PAS admin pur)
+  const canAudit = isAdmin;                          // admin + superuser
+  const canManage = canManageUsers || canManageIdeas; // accès au dashboard
+  const isRegularMember = user?.role !== "admin";    // peut soumettre/voter/commenter
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginUser, logoutUser, isAdmin, isResponsable, canManage }}>
+    <AuthContext.Provider value={{
+      user, loading, loginUser, logoutUser,
+      isSuperuser, isAdmin, isResponsable, isPureAdmin,
+      canManageUsers, canManageIdeas, canAudit,
+      canManage, isRegularMember,
+    }}>
       {children}
     </AuthContext.Provider>
   );
