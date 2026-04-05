@@ -62,7 +62,7 @@ class Command(BaseCommand):
             ("prof.kane@ensmg.sn",          "Mamadou",  "Kane",      User.PROFESSEUR, "Département Géologie"),
             ("prof.sarr@ensmg.sn",          "Rokhaya",  "Sarr",      User.PROFESSEUR, "Département Mines"),
             ("pat.gueye@ensmg.sn",          "Cheikh",   "Guèye",     User.PAT,        "Scolarité"),
-            ("responsable.comm@ensmg.sn",   "Ndèye",    "Mbaye",     User.RESPONSABLE,"Direction"),
+            ("ndeye.mbaye@ensmg.sn",         "Ndèye",    "Mbaye",     User.RESPONSABLE,"Direction"),
         ]
 
         users = {}
