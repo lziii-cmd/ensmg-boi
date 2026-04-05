@@ -18,10 +18,10 @@ import Layout from "./components/Layout";
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return (
-    <div className="flex items-center justify-center h-screen">
+    <div className="flex items-center justify-center h-screen bg-background">
       <div className="text-center">
         <div className="text-4xl mb-3 animate-pulse">💡</div>
-        <p className="text-gray-400 text-sm">Chargement...</p>
+        <p className="text-muted-foreground text-sm">Chargement...</p>
       </div>
     </div>
   );

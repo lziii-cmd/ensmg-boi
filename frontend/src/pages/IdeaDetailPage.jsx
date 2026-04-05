@@ -1,10 +1,22 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ThumbsUp, Send, Flag, ArrowLeft, Pin } from "lucide-react";
-import { getIdea, voteIdea, addComment, reportComment, updateIdeaStatus, pinIdea } from "../api/ideas";
-import { useAuth } from "../context/AuthContext";
-import StatusBadge from "../components/StatusBadge";
+import { ThumbsUp, Send, Flag, ArrowLeft, Pin, Loader2 } from "lucide-react";
+import { getIdea, voteIdea, addComment, reportComment, updateIdeaStatus, pinIdea } from "@/api/ideas";
+import { useAuth } from "@/context/AuthContext";
+import StatusBadge from "@/components/StatusBadge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
   { value: "publiee", label: "Publier" },
@@ -49,6 +61,9 @@ export default function IdeaDetailPage() {
     mutationFn: (data) => updateIdeaStatus(id, data),
     onSuccess: () => {
       setShowStatusForm(false);
+      setNewStatus("");
+      setStatusComment("");
+      setOfficialResponse("");
       queryClient.invalidateQueries(["idea", id]);
     },
   });
@@ -60,226 +75,271 @@ export default function IdeaDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <div className="card animate-pulse h-64" />
+      <div className="max-w-3xl mx-auto space-y-4">
+        <Skeleton className="h-8 w-24" />
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <Skeleton className="h-5 w-1/3" />
+            <Skeleton className="h-7 w-2/3" />
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (!idea) return <div className="text-center py-16 text-gray-400">Idée introuvable.</div>;
+  if (!idea) return (
+    <div className="text-center py-16 text-muted-foreground">Idée introuvable.</div>
+  );
+
+  const visibleComments = idea.comments?.filter((c) => !c.is_hidden) || [];
 
   return (
     <div className="max-w-3xl mx-auto">
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-4 text-sm"
+        className="mb-4 text-muted-foreground hover:text-foreground -ml-2"
       >
-        <ArrowLeft size={16} /> Retour
-      </button>
+        <ArrowLeft size={16} className="mr-1" /> Retour
+      </Button>
 
       {/* Main card */}
-      <div className="card mb-4">
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <StatusBadge status={idea.status} label={idea.status_display} />
-          <span className="badge bg-blue-50 text-blue-700">{idea.category?.name}</span>
-          {idea.is_pinned && <span className="badge bg-yellow-100 text-yellow-800">Épinglée</span>}
-          {idea.visibility === "private" && <span className="badge bg-gray-100 text-gray-600">Privée</span>}
-        </div>
-
-        <h1 className="text-xl font-bold text-gray-900 mb-2">{idea.title}</h1>
-
-        <div className="text-sm text-gray-500 mb-4">
-          Par <span className="font-medium">{idea.author_name}</span> ·{" "}
-          {new Date(idea.created_at).toLocaleDateString("fr-FR", {
-            day: "numeric", month: "long", year: "numeric"
-          })}
-        </div>
-
-        <p className="text-gray-700 whitespace-pre-wrap mb-6">{idea.description}</p>
-
-        {idea.attachment && (
-          <a
-            href={idea.attachment}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            Voir la pièce jointe
-          </a>
-        )}
-
-        {idea.official_response && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm font-semibold text-blue-800 mb-1">Réponse officielle</p>
-            <p className="text-sm text-blue-700">{idea.official_response}</p>
+      <Card className="mb-4">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <StatusBadge status={idea.status} label={idea.status_display} />
+            <Badge variant="info">{idea.category?.name}</Badge>
+            {idea.is_pinned && <Badge variant="gold">Épinglée</Badge>}
+            {idea.visibility === "private" && <Badge variant="outline">Privée</Badge>}
           </div>
-        )}
 
-        {idea.rejection_reason && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm font-semibold text-red-800 mb-1">Motif de rejet</p>
-            <p className="text-sm text-red-700">{idea.rejection_reason}</p>
-          </div>
-        )}
+          <h1 className="text-xl font-bold text-foreground mb-2">{idea.title}</h1>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
-          <button
-            onClick={() => voteMutation.mutate()}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              idea.user_has_voted
-                ? "bg-blue-100 text-blue-800"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            <ThumbsUp size={16} className={idea.user_has_voted ? "fill-blue-800" : ""} />
-            {idea.vote_count} vote{idea.vote_count !== 1 ? "s" : ""}
-          </button>
+          <p className="text-sm text-muted-foreground mb-5">
+            Par <span className="font-medium text-foreground/80">{idea.author_name}</span>
+            {" · "}
+            {new Date(idea.created_at).toLocaleDateString("fr-FR", {
+              day: "numeric", month: "long", year: "numeric"
+            })}
+          </p>
 
-          {canManage && (
-            <>
-              <button
-                onClick={() => setShowStatusForm(!showStatusForm)}
-                className="btn-primary text-sm py-2"
-              >
-                Changer le statut
-              </button>
-              <button
-                onClick={() => pinMutation.mutate()}
-                className={`p-2 rounded-lg transition-colors ${
-                  idea.is_pinned ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                title={idea.is_pinned ? "Désépingler" : "Épingler"}
-              >
-                <Pin size={16} />
-              </button>
-            </>
-          )}
-        </div>
+          <p className="text-foreground whitespace-pre-wrap leading-relaxed">{idea.description}</p>
 
-        {/* Status update form */}
-        {showStatusForm && canManage && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
-            <select
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="input"
+          {idea.attachment && (
+            <a
+              href={idea.attachment}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mt-4"
             >
-              <option value="">Choisir un statut</option>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-            <textarea
-              value={statusComment}
-              onChange={(e) => setStatusComment(e.target.value)}
-              placeholder={newStatus === "rejetee" ? "Motif du rejet (obligatoire)" : "Commentaire (optionnel)"}
-              className="input resize-none"
-              rows={3}
-            />
-            <textarea
-              value={officialResponse}
-              onChange={(e) => setOfficialResponse(e.target.value)}
-              placeholder="Réponse officielle (optionnel)"
-              className="input resize-none"
-              rows={2}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => statusMutation.mutate({ status: newStatus, comment: statusComment, official_response: officialResponse })}
-                disabled={!newStatus || statusMutation.isLoading}
-                className="btn-primary text-sm"
-              >
-                {statusMutation.isLoading ? "Enregistrement..." : "Confirmer"}
-              </button>
-              <button onClick={() => setShowStatusForm(false)} className="btn-secondary text-sm">
-                Annuler
-              </button>
-            </div>
-            {statusMutation.error && (
-              <p className="text-red-600 text-sm">
-                {statusMutation.error.response?.data?.comment?.[0] || "Erreur."}
-              </p>
+              Voir la pièce jointe
+            </a>
+          )}
+
+          {idea.official_response && (
+            <Alert variant="info" className="mt-5">
+              <AlertDescription>
+                <p className="font-semibold mb-1">Réponse officielle</p>
+                {idea.official_response}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {idea.rejection_reason && (
+            <Alert variant="destructive" className="mt-5">
+              <AlertDescription>
+                <p className="font-semibold mb-1">Motif de rejet</p>
+                {idea.rejection_reason}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Separator className="mt-6 mb-4" />
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant={idea.user_has_voted ? "default" : "outline"}
+              size="sm"
+              onClick={() => voteMutation.mutate()}
+              disabled={voteMutation.isPending}
+            >
+              <ThumbsUp
+                size={15}
+                className={cn("mr-1.5", idea.user_has_voted && "fill-current")}
+              />
+              {idea.vote_count} vote{idea.vote_count !== 1 ? "s" : ""}
+            </Button>
+
+            {canManage && (
+              <>
+                <Button
+                  size="sm"
+                  variant={showStatusForm ? "default" : "secondary"}
+                  onClick={() => setShowStatusForm(!showStatusForm)}
+                >
+                  Changer le statut
+                </Button>
+                <Button
+                  size="sm"
+                  variant={idea.is_pinned ? "secondary" : "outline"}
+                  onClick={() => pinMutation.mutate()}
+                  title={idea.is_pinned ? "Désépingler" : "Épingler"}
+                >
+                  <Pin size={15} className={cn(idea.is_pinned && "fill-current")} />
+                </Button>
+              </>
             )}
           </div>
-        )}
-      </div>
+
+          {/* Status form */}
+          {showStatusForm && canManage && (
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-3 border border-border">
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un nouveau statut..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Textarea
+                value={statusComment}
+                onChange={(e) => setStatusComment(e.target.value)}
+                placeholder={newStatus === "rejetee" ? "Motif du rejet (obligatoire)" : "Commentaire (optionnel)"}
+                rows={3}
+                className="resize-none"
+              />
+              <Textarea
+                value={officialResponse}
+                onChange={(e) => setOfficialResponse(e.target.value)}
+                placeholder="Réponse officielle (optionnel)"
+                rows={2}
+                className="resize-none"
+              />
+              {statusMutation.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {statusMutation.error.response?.data?.comment?.[0] || "Une erreur est survenue."}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => statusMutation.mutate({
+                    status: newStatus,
+                    comment: statusComment,
+                    official_response: officialResponse,
+                  })}
+                  disabled={!newStatus || statusMutation.isPending}
+                >
+                  {statusMutation.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                  Confirmer
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowStatusForm(false)}>
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Status history */}
       {idea.status_history?.length > 0 && (
-        <div className="card mb-4">
-          <h2 className="font-semibold text-gray-800 mb-3">Historique des statuts</h2>
-          <div className="space-y-2">
-            {idea.status_history.map((h) => (
-              <div key={h.id} className="flex gap-3 text-sm">
-                <span className="text-gray-400 shrink-0">
-                  {new Date(h.created_at).toLocaleDateString("fr-FR")}
-                </span>
-                <span>
-                  <span className="font-medium">{h.new_status_display}</span>
-                  {h.comment && <span className="text-gray-500"> — {h.comment}</span>}
-                  <span className="text-gray-400"> par {h.changed_by_name}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Card className="mb-4">
+          <CardHeader className="pb-2 pt-5 px-6">
+            <h2 className="font-semibold text-foreground">Historique des statuts</h2>
+          </CardHeader>
+          <CardContent className="px-6 pb-5">
+            <div className="space-y-2">
+              {idea.status_history.map((h) => (
+                <div key={h.id} className="flex gap-3 text-sm">
+                  <span className="text-muted-foreground shrink-0 tabular-nums">
+                    {new Date(h.created_at).toLocaleDateString("fr-FR")}
+                  </span>
+                  <span>
+                    <span className="font-medium">{h.new_status_display}</span>
+                    {h.comment && <span className="text-muted-foreground"> — {h.comment}</span>}
+                    <span className="text-muted-foreground/70"> par {h.changed_by_name}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Comments */}
-      <div className="card">
-        <h2 className="font-semibold text-gray-800 mb-4">
-          Commentaires ({idea.comments?.filter((c) => !c.is_hidden).length || 0})
-        </h2>
-
-        <div className="space-y-4 mb-6">
-          {idea.comments?.filter((c) => !c.is_hidden).map((c) => (
-            <div key={c.id} className="flex gap-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-bold text-sm shrink-0">
-                {c.author_name?.[0]?.toUpperCase() || "?"}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium">{c.author_name}</span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(c.created_at).toLocaleDateString("fr-FR")}
-                  </span>
+      <Card>
+        <CardHeader className="pb-2 pt-5 px-6">
+          <h2 className="font-semibold text-foreground">
+            Commentaires ({visibleComments.length})
+          </h2>
+        </CardHeader>
+        <CardContent className="px-6 pb-6">
+          <div className="space-y-4 mb-6">
+            {visibleComments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun commentaire pour l'instant.</p>
+            ) : (
+              visibleComments.map((c) => (
+                <div key={c.id} className="flex gap-3">
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                      {c.author_name?.[0]?.toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-foreground">{c.author_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(c.created_at).toLocaleDateString("fr-FR")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{c.content}</p>
+                    <button
+                      onClick={() => reportComment(c.id)}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive mt-1.5 transition-colors"
+                    >
+                      <Flag size={11} /> Signaler
+                    </button>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-700">{c.content}</p>
-                <button
-                  onClick={() => reportComment(c.id)}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 mt-1 transition-colors"
-                >
-                  <Flag size={12} /> Signaler
-                </button>
-              </div>
-            </div>
-          ))}
+              ))
+            )}
+          </div>
 
-          {idea.comments?.filter((c) => !c.is_hidden).length === 0 && (
-            <p className="text-sm text-gray-400">Aucun commentaire pour l'instant.</p>
-          )}
-        </div>
+          <Separator className="mb-4" />
 
-        {/* Add comment */}
-        <div className="flex gap-3">
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Ajouter un commentaire..."
-            className="input resize-none flex-1"
-            rows={2}
-            maxLength={1000}
-          />
-          <button
-            onClick={() => commentMutation.mutate()}
-            disabled={!comment.trim() || commentMutation.isLoading}
-            className="btn-primary px-3 self-end"
-          >
-            <Send size={16} />
-          </button>
-        </div>
-      </div>
+          <div className="flex gap-2">
+            <Textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Ajouter un commentaire..."
+              className="resize-none flex-1"
+              rows={2}
+              maxLength={1000}
+            />
+            <Button
+              size="icon"
+              onClick={() => commentMutation.mutate()}
+              disabled={!comment.trim() || commentMutation.isPending}
+              className="self-end"
+            >
+              {commentMutation.isPending
+                ? <Loader2 size={16} className="animate-spin" />
+                : <Send size={16} />
+              }
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

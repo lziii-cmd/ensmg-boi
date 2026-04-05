@@ -1,7 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getCategories, createIdea } from "../api/ideas";
+import { getCategories, createIdea } from "@/api/ideas";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { AlertCircle, Loader2, EyeOff, Paperclip } from "lucide-react";
 
 export default function SubmitIdeaPage() {
   const navigate = useNavigate();
@@ -56,127 +67,155 @@ export default function SubmitIdeaPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Soumettre une idée</h1>
-
-      <div className="card">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Titre <span className="text-red-500">*</span>
-            </label>
-            <input
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              className="input"
-              placeholder="5 à 100 caractères"
-              minLength={5}
-              maxLength={100}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description détaillée <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              className="input resize-none"
-              rows={5}
-              placeholder="Décrivez votre idée en détail (20 à 2000 caractères)"
-              minLength={20}
-              maxLength={2000}
-              required
-            />
-            <p className="text-xs text-gray-400 mt-1 text-right">
-              {form.description.length} / 2000
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Catégorie <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="category_id"
-              value={form.category_id}
-              onChange={handleChange}
-              className="input"
-              required
-            >
-              <option value="">Sélectionner une catégorie</option>
-              {categories?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Visibilité
-            </label>
-            <select
-              name="visibility"
-              value={form.visibility}
-              onChange={handleChange}
-              className="input"
-            >
-              <option value="public">Publique — visible par tous les membres</option>
-              <option value="private">Privée — visible uniquement par vous et les responsables</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Pièce jointe (facultatif)
-            </label>
-            <input
-              type="file"
-              accept=".pdf,.docx,.jpg,.jpeg,.png"
-              onChange={(e) => setAttachment(e.target.files[0])}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            <p className="text-xs text-gray-400 mt-1">PDF, DOCX, JPG, PNG — max 5 Mo</p>
-          </div>
-
-          <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
-            <input
-              type="checkbox"
-              id="is_confidential"
-              name="is_confidential"
-              checked={form.is_confidential}
-              onChange={handleChange}
-              className="mt-0.5"
-            />
-            <label htmlFor="is_confidential" className="text-sm text-blue-800">
-              <span className="font-medium">Soumettre en mode confidentiel</span>
-              <br />
-              <span className="text-blue-600">
-                Votre nom ne sera pas visible par les autres membres. Les responsables et administrateurs
-                peuvent toujours voir votre identité pour le suivi.
-              </span>
-            </label>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => navigate(-1)} className="btn-secondary flex-1">
-              Annuler
-            </button>
-            <button type="submit" className="btn-primary flex-1" disabled={loading}>
-              {loading ? "Soumission..." : "Soumettre l'idée"}
-            </button>
-          </div>
-        </form>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Soumettre une idée</h1>
+        <p className="text-muted-foreground mt-1">
+          Partagez vos propositions avec la communauté ENSMG
+        </p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold text-muted-foreground uppercase tracking-wide text-xs">
+            Formulaire de soumission
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-5">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="title">
+                Titre <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="title"
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                placeholder="5 à 100 caractères"
+                minLength={5}
+                maxLength={100}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="description">
+                Description détaillée <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Décrivez votre idée en détail (20 à 2000 caractères)"
+                rows={5}
+                minLength={20}
+                maxLength={2000}
+                required
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.description.length} / 2000
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Catégorie <span className="text-destructive">*</span></Label>
+                <Select
+                  value={form.category_id}
+                  onValueChange={(v) => setForm((f) => ({ ...f, category_id: v }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories?.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Visibilité</Label>
+                <Select
+                  value={form.visibility}
+                  onValueChange={(v) => setForm((f) => ({ ...f, visibility: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Publique</SelectItem>
+                    <SelectItem value="private">Privée (responsables uniquement)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-2">
+                <Paperclip size={14} /> Pièce jointe (facultatif)
+              </Label>
+              <input
+                type="file"
+                accept=".pdf,.docx,.jpg,.jpeg,.png"
+                onChange={(e) => setAttachment(e.target.files[0])}
+                className="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground">PDF, DOCX, JPG, PNG — max 5 Mo</p>
+            </div>
+
+            <Separator />
+
+            {/* Confidential toggle */}
+            <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <input
+                type="checkbox"
+                id="is_confidential"
+                name="is_confidential"
+                checked={form.is_confidential}
+                onChange={handleChange}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-primary"
+              />
+              <label htmlFor="is_confidential" className="text-sm cursor-pointer">
+                <span className="font-semibold text-blue-900 flex items-center gap-1">
+                  <EyeOff size={14} /> Soumettre en mode confidentiel
+                </span>
+                <span className="text-blue-700 mt-0.5 block">
+                  Votre nom ne sera pas visible par les autres membres. Les responsables et
+                  administrateurs peuvent toujours voir votre identité pour le suivi.
+                </span>
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate(-1)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" className="flex-1" disabled={loading || !form.category_id}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? "Soumission..." : "Soumettre l'idée"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

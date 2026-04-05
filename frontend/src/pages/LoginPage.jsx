@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { login } from "../api/auth";
+import { useAuth } from "@/context/AuthContext";
+import { login } from "@/api/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,14 +17,10 @@ export default function LoginPage() {
   const { user, loginUser } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect when user state is confirmed set
   useEffect(() => {
-    if (user) {
-      navigate("/", { replace: true });
-    }
+    if (user) navigate("/", { replace: true });
   }, [user, navigate]);
 
-  // Already logged in — redirect immediately
   if (user) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e) => {
@@ -28,7 +30,6 @@ export default function LoginPage() {
     try {
       const { data } = await login(email, password);
       loginUser({ access: data.access, refresh: data.refresh }, data.user);
-      // Navigation handled by useEffect above once user state is committed
     } catch (err) {
       setError(err.response?.data?.detail || "Identifiants invalides.");
     } finally {
@@ -37,63 +38,71 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-blue-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(221,83%,18%)] via-[hsl(221,83%,25%)] to-[hsl(221,60%,35%)] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">💡</div>
-          <h1 className="text-2xl font-bold text-white">Boîte à Idées</h1>
-          <p className="text-blue-200 mt-1">École Nationale Supérieure des Mines et de la Géologie</p>
-        </div>
-
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">Connexion</h2>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Adresse email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder="votre@email.com"
-                required
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mot de passe
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn-primary w-full" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
-            </button>
-          </form>
-
-          <div className="mt-4 text-center">
-            <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
-              Mot de passe oublié ?
-            </Link>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-yellow-400/20 backdrop-blur mb-4">
+            <span className="text-4xl">💡</span>
           </div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Boîte à Idées</h1>
+          <p className="text-blue-200 mt-1.5 text-sm">
+            École Nationale Supérieure des Mines et de la Géologie
+          </p>
         </div>
+
+        <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Connexion</CardTitle>
+            <CardDescription>Entrez vos identifiants pour accéder à la plateforme</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Adresse email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="votre@email.com"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <Button type="submit" className="w-full mt-2" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? "Connexion..." : "Se connecter"}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center">
+              <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                Mot de passe oublié ?
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         <p className="text-center text-blue-300 text-xs mt-6">
           Accès réservé aux membres de l'ENSMG
