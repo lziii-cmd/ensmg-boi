@@ -45,7 +45,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false   # ex: https://ensmg-backend.onrender.com/api/v1
+        value: "https://ensmg-boi-backend.onrender.com/api/v1"
 
 # ── Base de données PostgreSQL ───────────────────────────────────
 databases:
