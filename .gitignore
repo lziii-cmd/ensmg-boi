@@ -15,6 +15,9 @@ node_modules/
 frontend/dist/
 frontend/.env
 
+# Frontend build copié dans Django (généré par build.sh)
+backend/frontend_build/
+
 # OS
 .DS_Store
 Thumbs.db

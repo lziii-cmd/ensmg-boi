@@ -83,6 +83,9 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# Sert les fichiers React (JS, CSS, assets) directement depuis la racine /
+WHITENOISE_ROOT = BASE_DIR / "frontend_build"
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
