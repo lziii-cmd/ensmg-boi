@@ -27,6 +27,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ELEVE = "eleve"
     PROFESSEUR = "professeur"
     PAT = "pat"
+    DIRECTEUR = "directeur"
     RESPONSABLE = "responsable"
     ADMIN = "admin"
     SUPERUSER = "superuser"
@@ -35,6 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         (ELEVE, "Étudiant(e)"),
         (PROFESSEUR, "Professeur"),
         (PAT, "Personnel administratif et technique"),
+        (DIRECTEUR, "Directeur"),
         (RESPONSABLE, "Responsable des communications"),
         (ADMIN, "Administrateur"),
         (SUPERUSER, "Super administrateur"),
@@ -79,7 +81,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return False
 
     def can_manage_ideas(self):
-        """Responsable et superuser peuvent gérer les idées. Admin NON."""
+        """Responsable et superuser peuvent gérer les idées."""
         return self.role in (self.RESPONSABLE, self.SUPERUSER)
 
     def can_manage_users(self):

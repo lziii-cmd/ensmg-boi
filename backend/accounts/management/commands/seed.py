@@ -29,6 +29,41 @@ class Command(BaseCommand):
         else:
             self.stdout.write("Superuser déjà existant.")
 
+        # ── Admin ──────────────────────────────────────────────────────
+        if not User.objects.filter(email="admin@ensmg.sn").exists():
+            u = User.objects.create(
+                email="admin@ensmg.sn",
+                first_name="Administrateur",
+                last_name="ENSMG",
+                role=User.ADMIN,
+                department="Service Informatique",
+                is_active=True,
+                is_staff=True,
+                password_set=True,
+            )
+            u.set_password("passer01")
+            u.save()
+            self.stdout.write(self.style.SUCCESS("Admin créé : admin@ensmg.sn / passer01"))
+        else:
+            self.stdout.write("Admin déjà existant.")
+
+        # ── Responsable des communications ────────────────────────────
+        if not User.objects.filter(email="responsable@ensmg.sn").exists():
+            u = User.objects.create(
+                email="responsable@ensmg.sn",
+                first_name="Ndèye",
+                last_name="Mbaye",
+                role=User.RESPONSABLE,
+                department="Direction",
+                is_active=True,
+                password_set=True,
+            )
+            u.set_password("passer01")
+            u.save()
+            self.stdout.write(self.style.SUCCESS("Responsable créé : responsable@ensmg.sn / passer01"))
+        else:
+            self.stdout.write("Responsable déjà existant.")
+
         # ── Catégories ────────────────────────────────────────────────
         categories_data = [
             ("Pédagogie et Formation", "pedagogie-formation", 1),
@@ -59,10 +94,10 @@ class Command(BaseCommand):
             ("mariama.diop@ensmg.sn",       "Mariama",  "Diop",      User.ELEVE,      "Génie Pétrolier"),
             ("oumar.traore@ensmg.sn",       "Oumar",    "Traoré",    User.ELEVE,      "Génie Civil"),
             ("aissatou.barry@ensmg.sn",     "Aïssatou", "Barry",     User.ELEVE,      "Génie Minier"),
-            ("prof.kane@ensmg.sn",          "Mamadou",  "Kane",      User.PROFESSEUR, "Département Géologie"),
-            ("prof.sarr@ensmg.sn",          "Rokhaya",  "Sarr",      User.PROFESSEUR, "Département Mines"),
-            ("pat.gueye@ensmg.sn",          "Cheikh",   "Guèye",     User.PAT,        "Scolarité"),
-            ("ndeye.mbaye@ensmg.sn",         "Ndèye",    "Mbaye",     User.RESPONSABLE,"Direction"),
+            ("mamadou.kane@ensmg.sn",        "Mamadou",  "Kane",      User.PROFESSEUR, "Département Géologie"),
+            ("rokhaya.sarr@ensmg.sn",       "Rokhaya",  "Sarr",      User.PROFESSEUR, "Département Mines"),
+            ("cheikh.gueye@ensmg.sn",       "Cheikh",   "Guèye",     User.PAT,        "Scolarité"),
+            ("mouhamadou.diallo@ensmg.sn",  "Mouhamadou","Diallo",   User.DIRECTEUR,  "Direction"),
         ]
 
         users = {}
@@ -307,7 +342,7 @@ class Command(BaseCommand):
             ),
             (
                 "club entrepreneuriat",
-                "prof.kane@ensmg.sn",
+                "mamadou.kane@ensmg.sn",
                 "Je serais ravi de parrainer ce club et d'y intervenir en tant que mentor."
             ),
             (
@@ -327,7 +362,7 @@ class Command(BaseCommand):
             ),
             (
                 "tutorat entre pairs",
-                "prof.sarr@ensmg.sn",
+                "rokhaya.sarr@ensmg.sn",
                 "Très bonne initiative. Cela développe aussi les compétences pédagogiques des tuteurs."
             ),
             (
@@ -352,7 +387,7 @@ class Command(BaseCommand):
             ),
             (
                 "cours de langues",
-                "prof.kane@ensmg.sn",
+                "mamadou.kane@ensmg.sn",
                 "Le mandarin est effectivement très utile dans le contexte minier africain actuel."
             ),
             (

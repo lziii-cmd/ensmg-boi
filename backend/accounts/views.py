@@ -354,7 +354,7 @@ class CreateMemberView(APIView):
 
         if not first_name or not last_name:
             return Response({"detail": "Nom et prénom obligatoires."}, status=status.HTTP_400_BAD_REQUEST)
-        if role not in [User.ELEVE, User.PROFESSEUR, User.PAT, User.RESPONSABLE, User.ADMIN]:
+        if role not in [User.ELEVE, User.PROFESSEUR, User.PAT, User.DIRECTEUR, User.RESPONSABLE, User.ADMIN]:
             return Response({"detail": "Rôle invalide."}, status=status.HTTP_400_BAD_REQUEST)
 
         slug_first = self.slugify_name(first_name)

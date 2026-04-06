@@ -40,16 +40,16 @@ export function AuthProvider({ children }) {
 
   // Rôles
   const isSuperuser = user?.role === "superuser";
-  const isAdmin = user?.role === "admin" || isSuperuser;       // gestion utilisateurs + audit
-  const isResponsable = user?.role === "responsable" || isSuperuser; // gestion idées
-  const isPureAdmin = user?.role === "admin";                  // admin strict (sans superuser)
+  const isAdmin = user?.role === "admin" || isSuperuser;
+  const isResponsable = user?.role === "responsable" || isSuperuser;
+  const isDirecteur = user?.role === "directeur";
+  const isPureAdmin = user?.role === "admin";
 
-  // Accès aux fonctionnalités
-  const canManageUsers = isAdmin;                    // admin + superuser
-  const canManageIdeas = isResponsable;              // responsable + superuser (PAS admin pur)
-  const canAudit = isAdmin;                          // admin + superuser
-  const canManage = canManageUsers || canManageIdeas; // accès au dashboard
-  const isRegularMember = user?.role !== "admin";    // peut soumettre/voter/commenter
+  const canManageUsers = isAdmin;
+  const canManageIdeas = isResponsable;
+  const canAudit = isAdmin;
+  const canManage = canManageUsers || canManageIdeas;
+  const isRegularMember = user?.role !== "admin";
 
   return (
     <AuthContext.Provider value={{
