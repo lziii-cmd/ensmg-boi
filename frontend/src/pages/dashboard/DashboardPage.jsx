@@ -10,13 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import StatusBadge from "@/components/StatusBadge";
 
 const STATUS_LABELS = {
-  en_attente: "En attente",
-  publiee: "Publiées",
-  en_etude: "En étude",
-  acceptee: "Acceptées",
-  rejetee: "Rejetées",
-  mise_en_oeuvre: "Mises en œuvre",
-  archivee: "Archivées",
+  brouillon:     "Brouillons",
+  en_attente:    "En attente",
+  publiee:       "Publiées",
+  en_etude:      "En étude",
+  acceptee:      "Acceptées",
+  mise_en_oeuvre:"En cours de mise en œuvre",
+  realisee:      "Réalisées",
+  rejetee:       "Rejetées",
 };
 
 export default function DashboardPage() {
@@ -151,18 +152,23 @@ export default function DashboardPage() {
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: "Total idées", value: stats.total, className: "text-primary" },
-                  { label: "En attente", value: stats.by_status.en_attente || 0, className: "text-orange-500" },
-                  { label: "Acceptées", value: stats.by_status.acceptee || 0, className: "text-green-600" },
-                  { label: "Réalisées", value: stats.by_status.mise_en_oeuvre || 0, className: "text-yellow-600" },
-                ].map(({ label, value, className }) => (
-                  <Card key={label}>
-                    <CardContent className="p-6 text-center">
-                      <p className={`text-3xl font-bold ${className}`}>{value}</p>
-                      <p className="text-sm text-muted-foreground mt-1">{label}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+                  { label: "Total idées",  value: stats.total,                         className: "text-primary",     status: null },
+                  { label: "En attente",   value: stats.by_status.en_attente    || 0,  className: "text-orange-500",  status: "en_attente" },
+                  { label: "Acceptées",    value: stats.by_status.acceptee      || 0,  className: "text-green-600",   status: "acceptee" },
+                  { label: "Réalisées",    value: stats.by_status.realisee      || 0,  className: "text-teal-600",    status: "realisee" },
+                ].map(({ label, value, className, status }) => {
+                  const content = (
+                    <Card className={status ? "hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer" : ""}>
+                      <CardContent className="p-6 text-center">
+                        <p className={`text-3xl font-bold ${className}`}>{value}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{label}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                  return status
+                    ? <Link key={label} to={`/dashboard/ideas?status=${status}`}>{content}</Link>
+                    : <div key={label}>{content}</div>;
+                })}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -173,10 +179,14 @@ export default function DashboardPage() {
                   <CardContent>
                     <div className="space-y-2.5">
                       {Object.entries(stats.by_status).map(([key, count]) => (
-                        <div key={key} className="flex items-center justify-between">
+                        <Link
+                          key={key}
+                          to={`/dashboard/ideas?status=${key}`}
+                          className="flex items-center justify-between hover:bg-muted/50 rounded px-2 py-1 -mx-2 transition-colors"
+                        >
                           <StatusBadge status={key} label={STATUS_LABELS[key] || key} />
                           <span className="font-bold text-foreground tabular-nums">{count}</span>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   </CardContent>
