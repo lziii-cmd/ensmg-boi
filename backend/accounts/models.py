@@ -96,8 +96,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.role in (self.ADMIN, self.SUPERUSER)
 
     def is_regular_member(self):
-        """Peut soumettre des idées, voter, commenter. Admin pur exclu."""
-        return self.is_active and self.role != self.ADMIN
+        """Peut soumettre des idées, voter, commenter."""
+        return self.is_active and self.role not in (
+            self.RESPONSABLE, self.ADMIN, self.SUPERUSER
+        )
 
 
 class MemberImport(models.Model):

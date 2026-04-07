@@ -27,59 +27,87 @@ class Category(models.Model):
 
 
 class Idea(models.Model):
-    EN_ATTENTE = "en_attente"
-    PUBLIEE = "publiee"
-    EN_ETUDE = "en_etude"
-    ACCEPTEE = "acceptee"
-    REJETEE = "rejetee"
+    # ── Statuts ───────────────────────────────────────────────────────
+    BROUILLON      = "brouillon"
+    EN_ATTENTE     = "en_attente"
+    PUBLIEE        = "publiee"
+    EN_ETUDE       = "en_etude"
+    ACCEPTEE       = "acceptee"
     MISE_EN_OEUVRE = "mise_en_oeuvre"
-    ARCHIVEE = "archivee"
+    REALISEE       = "realisee"
+    REJETEE        = "rejetee"
 
     STATUS_CHOICES = [
-        (EN_ATTENTE, "En attente de validation"),
-        (PUBLIEE, "Publiée"),
-        (EN_ETUDE, "En étude"),
-        (ACCEPTEE, "Acceptée"),
-        (REJETEE, "Rejetée"),
-        (MISE_EN_OEUVRE, "Mise en œuvre"),
-        (ARCHIVEE, "Archivée"),
+        (BROUILLON,      "Brouillon"),
+        (EN_ATTENTE,     "En attente de validation"),
+        (PUBLIEE,        "Publiée"),
+        (EN_ETUDE,       "En étude"),
+        (ACCEPTEE,       "Acceptée"),
+        (MISE_EN_OEUVRE, "En cours de mise en œuvre"),
+        (REALISEE,       "Réalisée"),
+        (REJETEE,        "Rejetée"),
     ]
 
     STATUS_COLORS = {
-        EN_ATTENTE: "orange",
-        PUBLIEE: "gray",
-        EN_ETUDE: "blue",
-        ACCEPTEE: "green",
-        REJETEE: "red",
+        BROUILLON:      "gray",
+        EN_ATTENTE:     "orange",
+        PUBLIEE:        "blue",
+        EN_ETUDE:       "purple",
+        ACCEPTEE:       "green",
         MISE_EN_OEUVRE: "gold",
-        ARCHIVEE: "dark_gray",
+        REALISEE:       "teal",
+        REJETEE:        "red",
     }
 
-    PUBLIC = "public"
+    # ── Catégories de rejet ───────────────────────────────────────────
+    HORS_PERIMETRE = "hors_perimetre"
+    BUDGET         = "budget"
+    DEJA_EN_COURS  = "deja_en_cours"
+    DOUBLON        = "doublon"
+    NON_REALISABLE = "non_realisable"
+    AUTRE_REJET    = "autre"
+
+    REJECTION_CATEGORY_CHOICES = [
+        (HORS_PERIMETRE, "Hors périmètre"),
+        (BUDGET,         "Budget insuffisant"),
+        (DEJA_EN_COURS,  "Déjà en cours"),
+        (DOUBLON,        "Doublon d'une idée existante"),
+        (NON_REALISABLE, "Non réalisable techniquement"),
+        (AUTRE_REJET,    "Autre"),
+    ]
+
+    # ── Visibilité ────────────────────────────────────────────────────
+    PUBLIC  = "public"
     PRIVATE = "private"
     VISIBILITY_CHOICES = [
-        (PUBLIC, "Publique"),
+        (PUBLIC,  "Publique"),
         (PRIVATE, "Privée"),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=100)
-    description = models.TextField(max_length=2000)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="ideas")
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, related_name="ideas"
-    )
+    id              = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title           = models.CharField(max_length=100)
+    description     = models.TextField(max_length=2000)
+    category        = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="ideas")
+    author          = models.ForeignKey(
+                          settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                          null=True, related_name="ideas"
+                      )
     is_confidential = models.BooleanField(default=False)
-    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default=PUBLIC)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=EN_ATTENTE)
-    attachment = models.FileField(upload_to=idea_attachment_path, null=True, blank=True)
-    official_response = models.TextField(blank=True)
-    rejection_reason = models.TextField(blank=True)
-    is_pinned = models.BooleanField(default=False)
-    vote_count = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    visibility      = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default=PUBLIC)
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=EN_ATTENTE)
+    attachment      = models.FileField(upload_to=idea_attachment_path, null=True, blank=True)
+
+    # ── Réponses ──────────────────────────────────────────────────────
+    official_response   = models.TextField(blank=True)
+    rejection_category  = models.CharField(
+                              max_length=20, choices=REJECTION_CATEGORY_CHOICES, blank=True
+                          )
+    rejection_reason    = models.TextField(blank=True)
+
+    is_pinned   = models.BooleanField(default=False)
+    vote_count  = models.PositiveIntegerField(default=0)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Idée"
@@ -94,14 +122,14 @@ class Idea(models.Model):
 
 
 class StatusHistory(models.Model):
-    idea = models.ForeignKey(Idea, on_delete=models.CASCADE, related_name="status_history")
+    idea       = models.ForeignKey(Idea, on_delete=models.CASCADE, related_name="status_history")
     old_status = models.CharField(max_length=20, blank=True)
     new_status = models.CharField(max_length=20)
     changed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, related_name="status_changes"
-    )
-    comment = models.TextField(blank=True)
+                     settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                     null=True, related_name="status_changes"
+                 )
+    comment    = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -109,8 +137,8 @@ class StatusHistory(models.Model):
 
 
 class Vote(models.Model):
-    idea = models.ForeignKey(Idea, on_delete=models.CASCADE, related_name="votes")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="votes")
+    idea       = models.ForeignKey(Idea, on_delete=models.CASCADE, related_name="votes")
+    user       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="votes")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -118,24 +146,24 @@ class Vote(models.Model):
 
 
 class Comment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    idea = models.ForeignKey(Idea, on_delete=models.CASCADE, related_name="comments")
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, related_name="comments"
-    )
-    content = models.TextField(max_length=1000)
-    is_hidden = models.BooleanField(default=False)
+    id           = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    idea         = models.ForeignKey(Idea, on_delete=models.CASCADE, related_name="comments")
+    author       = models.ForeignKey(
+                       settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                       null=True, related_name="comments"
+                   )
+    content      = models.TextField(max_length=1000)
+    is_hidden    = models.BooleanField(default=False)
     report_count = models.PositiveSmallIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["created_at"]
 
 
 class CommentReport(models.Model):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="reports")
-    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    comment    = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="reports")
+    reporter   = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

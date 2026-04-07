@@ -39,7 +39,8 @@ class IdeaListView(generics.ListAPIView):
 
         return qs.filter(
             Q(visibility=Idea.PUBLIC, status__in=[
-                Idea.PUBLIEE, Idea.EN_ETUDE, Idea.ACCEPTEE, Idea.MISE_EN_OEUVRE
+                Idea.PUBLIEE, Idea.EN_ETUDE, Idea.ACCEPTEE,
+                Idea.MISE_EN_OEUVRE, Idea.REALISEE,
             ]) | Q(author=user)
         )
 
@@ -73,7 +74,8 @@ class IdeaDetailView(generics.RetrieveAPIView):
             return qs
         return qs.filter(
             Q(visibility=Idea.PUBLIC, status__in=[
-                Idea.PUBLIEE, Idea.EN_ETUDE, Idea.ACCEPTEE, Idea.MISE_EN_OEUVRE
+                Idea.PUBLIEE, Idea.EN_ETUDE, Idea.ACCEPTEE,
+                Idea.MISE_EN_OEUVRE, Idea.REALISEE,
             ]) | Q(author=user)
         )
 
@@ -105,7 +107,12 @@ class IdeaStatusUpdateView(APIView):
 
         idea.status = new_status
         if new_status == Idea.REJETEE:
+            idea.rejection_category = serializer.validated_data.get("rejection_category", "")
             idea.rejection_reason = comment
+            idea.official_response = ""          # effacer l'ancienne réponse si rejeté
+        else:
+            idea.rejection_category = ""
+            idea.rejection_reason = ""
         if official_response:
             idea.official_response = official_response
         idea.save()
