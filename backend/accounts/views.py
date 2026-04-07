@@ -373,10 +373,10 @@ class CreateMemberView(APIView):
             last_name=last_name,
             role=role,
             is_active=True,
-            password_set=False,
-            invitation_sent_at=timezone.now(),
+            password_set=True,
         )
-        send_invitation_email.delay(str(user.id))
+        user.set_password("passer01")
+        user.save(update_fields=["password"])
 
         log_action(
             user=request.user,
