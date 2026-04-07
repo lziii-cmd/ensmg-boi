@@ -189,6 +189,7 @@ class VoteView(APIView):
 
 
 class CommentCreateView(generics.CreateAPIView):
+    permission_classes = [IsRegularMember]
     serializer_class = CommentSerializer
 
     def perform_create(self, serializer):
