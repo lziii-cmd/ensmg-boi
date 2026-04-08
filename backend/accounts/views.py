@@ -12,7 +12,7 @@ from .permissions import IsAdmin, IsResponsableOrAdmin, IsAuditor
 from .serializers import (
     UserSerializer, LoginSerializer, SetPasswordSerializer,
     ChangePasswordSerializer, MemberImportSerializer, AuditLogSerializer,
-    SuperuserSetupSerializer,
+    SuperuserSetupSerializer, RegisterSerializer,
 )
 from .tasks import send_invitation_email, send_password_reset_email
 from .utils import get_client_ip, log_action
@@ -45,6 +45,36 @@ class LoginView(APIView):
             "refresh": str(refresh),
             "user": UserSerializer(user).data,
         })
+
+
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user = User.objects.create(
+            email=data["email"].lower().strip(),
+            first_name=data["first_name"].strip(),
+            last_name=data["last_name"].strip(),
+            role=data["role"],
+            is_active=True,
+            password_set=True,
+        )
+        user.set_password(data["password"])
+        user.save(update_fields=["password"])
+
+        # Auto-login : retourne les tokens
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access":  str(refresh.access_token),
+            "refresh": str(refresh),
+            "user":    UserSerializer(user).data,
+        }, status=status.HTTP_201_CREATED)
 
 
 class LogoutView(APIView):

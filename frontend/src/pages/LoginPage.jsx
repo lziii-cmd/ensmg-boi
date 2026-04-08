@@ -100,8 +100,8 @@ export default function LoginPage() {
               <Link to="/forgot-password" className="text-sm text-primary hover:underline">
                 Mot de passe oublié ?
               </Link>
-              <Link to="/ensmg-init-platform" className="text-sm text-muted-foreground hover:underline">
-                Première connexion ?
+              <Link to="/register" className="text-sm text-primary hover:underline font-medium">
+                Créer un compte
               </Link>
             </div>
           </CardContent>

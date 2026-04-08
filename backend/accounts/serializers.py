@@ -119,6 +119,31 @@ class SuperuserSetupSerializer(serializers.Serializer):
         return data
 
 
+class RegisterSerializer(serializers.Serializer):
+    first_name       = serializers.CharField(max_length=100)
+    last_name        = serializers.CharField(max_length=100)
+    email            = serializers.EmailField()
+    role             = serializers.ChoiceField(choices=[
+                           (User.ELEVE,      "Étudiant(e)"),
+                           (User.PROFESSEUR, "Professeur"),
+                           (User.PAT,        "Personnel administratif et technique"),
+                           (User.DIRECTEUR,  "Directeur"),
+                       ])
+    password         = serializers.CharField(write_only=True, min_length=6)
+    password_confirm = serializers.CharField(write_only=True)
+
+    def validate_email(self, value):
+        value = value.lower().strip()
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Cette adresse email est déjà utilisée.")
+        return value
+
+    def validate(self, data):
+        if data["password"] != data["password_confirm"]:
+            raise serializers.ValidationError({"password_confirm": "Les mots de passe ne correspondent pas."})
+        return data
+
+
 class AuditLogSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
