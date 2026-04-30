@@ -90,7 +90,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        // En Docker : BACKEND_URL=http://backend:8000
+        // En local  : http://localhost:8000 (valeur par défaut)
+        target: process.env.BACKEND_URL || "http://localhost:8000",
         changeOrigin: true,
       },
     },

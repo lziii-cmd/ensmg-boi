@@ -113,6 +113,13 @@ class Idea(models.Model):
         verbose_name = "Idée"
         verbose_name_plural = "Idées"
         ordering = ["-is_pinned", "-created_at"]
+        indexes = [
+            models.Index(fields=["status"], name="idea_status_idx"),
+            models.Index(fields=["created_at"], name="idea_created_at_idx"),
+            models.Index(fields=["is_pinned", "created_at"], name="idea_pinned_created_idx"),
+            models.Index(fields=["author", "status"], name="idea_author_status_idx"),
+            models.Index(fields=["category", "status"], name="idea_category_status_idx"),
+        ]
 
     def __str__(self):
         return self.title

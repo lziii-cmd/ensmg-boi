@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db.models import Q, F
 from django.utils import timezone
 from rest_framework import generics, status, filters
@@ -20,6 +21,15 @@ from .serializers import (
 class CategoryListView(generics.ListAPIView):
     serializer_class = CategorySerializer
     queryset = Category.objects.filter(is_active=True)
+
+    def list(self, request, *args, **kwargs):
+        """Cache les catégories 10 minutes — données statiques, identiques pour tous."""
+        cached = cache.get("categories_list")
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        cache.set("categories_list", response.data, timeout=600)
+        return response
 
 
 class IdeaListView(generics.ListAPIView):

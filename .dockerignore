@@ -1,0 +1,21 @@
+# Prod build context (./) — exclut ce qui n'est pas nécessaire
+.git/
+.gitignore
+*.md
+*.bat
+*.log
+backend/.env
+backend/venv/
+backend/.venv/
+backend/__pycache__/
+backend/staticfiles/
+backend/frontend_build/
+backend/media/
+backend/db.sqlite3
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+docker-compose*.yml
+Dockerfile*
+docker-entrypoint.sh
+.env.prod*

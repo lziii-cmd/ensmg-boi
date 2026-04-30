@@ -1,14 +1,15 @@
-import os
+from datetime import timedelta
 from pathlib import Path
-from decouple import config
-import dj_database_url
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+import dj_database_url
+from decouple import config
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-dev-key-change-in-production")
 DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
-# Accepte tous les sous-domaines onrender.com automatiquement
+
 if not DEBUG:
     ALLOWED_HOSTS += [".onrender.com"]
 
@@ -86,7 +87,6 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Sert les fichiers React (JS, CSS, assets) directement depuis la racine /
 WHITENOISE_ROOT = BASE_DIR / "frontend_build"
 
 MEDIA_URL = "/media/"
@@ -94,7 +94,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -109,30 +108,44 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "user": "300/minute",
+        "login": "10/minute",      # endpoint login limité à 10 tentatives/minute
+    },
 }
 
-# JWT
-from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
 }
 
-# CORS
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:5173,http://localhost:3000"
+    default="http://localhost:5173,http://localhost:3000",
 ).split(",")
 CORS_ALLOW_CREDENTIALS = True
 
-# Celery
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://localhost:6379/0")
+
+# Redis : base 0 = Celery, base 1 = cache API
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://localhost:6379/1").replace("/0", "/1"),
+        "TIMEOUT": 120,  # 2 minutes par défaut
+        "KEY_PREFIX": "ensmg",
+    }
+}
 CELERY_TIMEZONE = "Africa/Dakar"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-# Email
 EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = config("EMAIL_HOST", default="")
 EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
@@ -143,6 +156,5 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@ensmg.sn")
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")
 
-# File upload
-MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024
 ALLOWED_UPLOAD_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg", ".png"]

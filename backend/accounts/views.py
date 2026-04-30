@@ -4,7 +4,13 @@ from django.utils import timezone
 from rest_framework import status, generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    """10 tentatives de login par minute par IP."""
+    scope = "login"
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User, MemberImport, AuditLog
@@ -20,6 +26,7 @@ from .utils import get_client_ip, log_action
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
